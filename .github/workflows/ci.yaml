@@ -7,11 +7,127 @@ on:
     branches: [main, master]
 
 env:
-  CONTAINER_SUBSYS: podman
-  IMAGE_REGISTRY: quay.io
+  GO_VERSION: "1.24"
+  CI_IMAGE: ollama-metrics-ci
   IMAGE_NAME: quay.io/clcollins/ollama-metrics
 
 jobs:
+  # --- CI container ---
+
+  ci-image:
+    name: Build CI Container
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build CI container
+        run: podman build -f test/Containerfile.ci -t ${CI_IMAGE} test/
+
+      - name: Save CI container image
+        run: podman save ${CI_IMAGE} -o /tmp/${CI_IMAGE}.tar
+
+      - name: Upload CI container image
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-image
+          path: /tmp/${{ env.CI_IMAGE }}.tar
+          retention-days: 1
+
+  # --- Lint jobs (run inside CI container) ---
+
+  yaml-lint:
+    name: YAML Lint
+    needs: ci-image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ci-image
+          path: /tmp
+      - run: podman load -i /tmp/${CI_IMAGE}.tar
+      - run: podman run --rm -v "$(pwd):/work:Z" ${CI_IMAGE} make yaml-lint
+
+  markdown-lint:
+    name: Markdown Lint
+    needs: ci-image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ci-image
+          path: /tmp
+      - run: podman load -i /tmp/${CI_IMAGE}.tar
+      - run: podman run --rm -v "$(pwd):/work:Z" ${CI_IMAGE} make markdown-lint
+
+  makefile-lint:
+    name: Makefile Lint
+    needs: ci-image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ci-image
+          path: /tmp
+      - run: podman load -i /tmp/${CI_IMAGE}.tar
+      - run: podman run --rm -v "$(pwd):/work:Z" ${CI_IMAGE} make makefile-lint
+
+  containerfile-check:
+    name: Containerfile Check
+    needs: ci-image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ci-image
+          path: /tmp
+      - run: podman load -i /tmp/${CI_IMAGE}.tar
+      - run: podman run --rm -v "$(pwd):/work:Z" ${CI_IMAGE} make containerfile-check
+
+  kubernetes-validate:
+    name: Kubernetes Manifest Validation
+    needs: ci-image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ci-image
+          path: /tmp
+      - run: podman load -i /tmp/${CI_IMAGE}.tar
+      - run: podman run --rm -v "$(pwd):/work:Z" ${CI_IMAGE} make kubernetes-validate
+
+  shellcheck-lint:
+    name: ShellCheck
+    needs: ci-image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ci-image
+          path: /tmp
+      - run: podman load -i /tmp/${CI_IMAGE}.tar
+      - run: podman run --rm -v "$(pwd):/work:Z" ${CI_IMAGE} make shellcheck-lint
+
+  docs-check:
+    name: Documentation Check
+    needs: ci-image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ci-image
+          path: /tmp
+      - run: podman load -i /tmp/${CI_IMAGE}.tar
+      - run: podman run --rm -v "$(pwd):/work:Z" ${CI_IMAGE} make docs-check
+
+  # --- Go jobs (run on GHA runner) ---
+
   fmt:
     name: Go Format
     runs-on: ubuntu-latest
@@ -53,7 +169,7 @@ jobs:
         with:
           version: v2.11
 
-  test:
+  go-test:
     name: Go Test
     runs-on: ubuntu-latest
     steps:
@@ -82,46 +198,6 @@ jobs:
       - name: Build binary
         run: mkdir -p out && go build -o out/ollama-metrics .
 
-  image-build:
-    name: Container Image Build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Podman
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y podman
-      - name: Build container image
-        run: |
-          podman build -f Containerfile \
-            --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
-            --build-arg VCS_REF=$(git rev-parse HEAD) \
-            --build-arg VERSION=ci \
-            -t ${{ env.IMAGE_NAME }}:ci .
-      - name: Validate OCI labels
-        run: |
-          echo "Checking OCI labels..."
-          podman inspect ${{ env.IMAGE_NAME }}:ci --format '{{index .Config.Labels "org.opencontainers.image.title"}}' | grep -q "ollama-metrics"
-          podman inspect ${{ env.IMAGE_NAME }}:ci --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' | grep -q "$(git rev-parse HEAD)"
-          podman inspect ${{ env.IMAGE_NAME }}:ci --format '{{index .Config.Labels "org.opencontainers.image.version"}}' | grep -q "ci"
-          podman inspect ${{ env.IMAGE_NAME }}:ci --format '{{index .Config.Labels "is.collins.cluster.build.commit.id"}}' | grep -q "$(git rev-parse HEAD)"
-          podman inspect ${{ env.IMAGE_NAME }}:ci --format '{{index .Config.Labels "io.k8s.display-name"}}' | grep -q "ollama-metrics"
-          echo "All OCI labels validated successfully."
-      - name: Validate image starts
-        run: |
-          podman run -d --name ollama-metrics-test -p 8080:8080 ${{ env.IMAGE_NAME }}:ci
-          sleep 2
-          STATE=$(podman inspect ollama-metrics-test --format '{{.State.Running}}')
-          if [ "${STATE}" = "true" ]; then
-            echo "Container started successfully."
-          else
-            echo "ERROR: Container failed to start."
-            podman logs ollama-metrics-test
-            exit 1
-          fi
-          podman stop ollama-metrics-test
-          podman rm ollama-metrics-test
-
   tidy-check:
     name: Go Mod Tidy Check
     runs-on: ubuntu-latest
@@ -139,46 +215,37 @@ jobs:
             exit 1
           fi
 
-  containerfile-check:
-    name: Containerfile Tag Check
+  # --- Container image build (run on GHA runner) ---
+
+  image-build:
+    name: Container Image Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check base image tags are pinned
+      - name: Build container image
         run: |
-          echo "Checking Containerfile base image tags..."
-          awk '/^FROM / { if ($2 !~ /:/ || $2 ~ /:latest$/) { print "ERROR: unpinned base image: " $2; exit 1 } }' Containerfile
-          echo "All Containerfile base image tags are pinned."
-
-  yaml-lint:
-    name: YAML Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install yamllint
-        run: pip install yamllint
-      - name: Run yamllint
-        run: yamllint -c .yamllint.yaml prometheus/ .github/workflows/
-
-  checkmake:
-    name: Makefile Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - name: Install checkmake
-        run: go install github.com/checkmake/checkmake/cmd/checkmake@latest
-      - name: Run checkmake
-        run: checkmake Makefile
-
-  mdlint:
-    name: Markdown Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install markdownlint-cli2
-        run: npm install -g markdownlint-cli2
-      - name: Run markdownlint
-        run: markdownlint-cli2 '**/*.md' '#node_modules'
+          podman build -f Containerfile \
+            --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+            --build-arg VCS_REF=$(git rev-parse HEAD) \
+            --build-arg VERSION=ci \
+            -t ${{ env.IMAGE_NAME }}:ci .
+      - name: Validate OCI labels
+        run: |
+          echo "Checking OCI labels..."
+          inspect=$(podman inspect ${{ env.IMAGE_NAME }}:ci)
+          for label in \
+            "org.opencontainers.image.title" \
+            "org.opencontainers.image.revision" \
+            "org.opencontainers.image.version" \
+            "org.opencontainers.image.source" \
+            "io.k8s.display-name"; do
+            value=$(echo "${inspect}" | jq -r ".[0].Config.Labels[\"${label}\"]")
+            if [ "${value}" = "null" ] || [ -z "${value}" ]; then
+              echo "ERROR: Missing label: ${label}"
+              exit 1
+            fi
+            echo "OK: ${label}=${value}"
+          done
+          echo "All OCI labels validated successfully."
+      - name: Validate image runs
+        run: podman run --rm ${{ env.IMAGE_NAME }}:ci &
