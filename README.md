@@ -57,7 +57,7 @@ go build -o ollama-metrics
 
 ## Metrics
 
-Access Prometheus metrics at http://localhost:8080/metrics
+Access Prometheus metrics at `http://localhost:8080/metrics`
 
 ### Available Metrics
 

@@ -77,20 +77,14 @@ tidy:
 .PHONY: tidy-check
 tidy-check:
 	$(GO) mod tidy
-	@if [ -n "$$(git diff --name-only go.mod go.sum)" ]; then \
-		echo "go.mod or go.sum is not tidy. Run 'go mod tidy' and commit the changes."; \
-		git diff go.mod go.sum; \
-		exit 1; \
-	fi
+	@test -z "$$(git diff --name-only go.mod go.sum)" || \
+		{ echo "go.mod/go.sum not tidy"; git diff go.mod go.sum; exit 1; }
 
 .PHONY: containerfile-check
 containerfile-check:
-	@echo "Checking Containerfile base image tags..."
-	@if grep -E '^FROM\s+\S+:(latest|)\s' $(CONTAINER_FILE) 2>/dev/null; then \
-		echo "ERROR: Containerfile uses :latest or untagged base image"; \
-		exit 1; \
-	fi
-	@echo "All Containerfile base image tags are pinned."
+	@! grep -qE '^FROM\s+\S+:(latest|)\s' $(CONTAINER_FILE) 2>/dev/null || \
+		{ echo "ERROR: Containerfile uses :latest or untagged base image"; exit 1; }
+	@echo "Containerfile base image tags are pinned."
 
 # --- Linting tools ---
 
