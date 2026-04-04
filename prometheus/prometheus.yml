@@ -1,11 +1,14 @@
 # Reference copy of the Prometheus configuration.
 # The canonical config is embedded in the ConfigMap in monitoring.yaml.
-# This file is provided for standalone Prometheus use outside the pod.
 #
-# Target notes:
-#   - host.containers.internal: reaches the host from a podman container
-#   - localhost:8080: use when ollama-metrics is in the same pod
-#   - <pod-ip>:8080: use when ollama-metrics is in a different pod
+# As configured, this file is for use inside the monitoring pod where
+# node-exporter is at localhost:9100 and ollama-metrics is reachable
+# via the host (host.containers.internal).
+#
+# Adjust targets for your deployment:
+#   - host.containers.internal:8080 — ollama-metrics published to host
+#   - localhost:8080 — ollama-metrics in the same pod as Prometheus
+#   - <pod-ip>:8080 — ollama-metrics in a different pod
 global:
   scrape_interval: 1m
 
