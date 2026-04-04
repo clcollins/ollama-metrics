@@ -67,7 +67,7 @@ jobs:
       - name: Run tests with coverage
         run: go test -coverprofile=coverage.txt -count=1 ./...
       - name: Upload results to Codecov
-        if: ${{ secrets.CODECOV_TOKEN != '' }}
+        continue-on-error: true
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -112,7 +112,8 @@ jobs:
         run: |
           podman run -d --name ollama-metrics-test -p 8080:8080 ${{ env.IMAGE_NAME }}:ci
           sleep 2
-          if podman ps --filter name=ollama-metrics-test --format '{{.Status}}' | grep -q "Up"; then
+          STATE=$(podman inspect ollama-metrics-test --format '{{.State.Running}}')
+          if [ "${STATE}" = "true" ]; then
             echo "Container started successfully."
           else
             echo "ERROR: Container failed to start."
