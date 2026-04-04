@@ -34,7 +34,7 @@ vet:
 .PHONY: lint
 lint:
 ifdef GOLANGCI_LINT
-	golangci-lint run ./...
+	$(GOLANGCI_LINT) run ./...
 else
 	@echo "golangci-lint is required but not installed (install: https://golangci-lint.run/welcome/install/)"
 	@exit 1
@@ -90,7 +90,7 @@ containerfile-check:
 .PHONY: checkmake
 checkmake:
 ifdef CHECKMAKE
-	checkmake Makefile
+	$(CHECKMAKE) Makefile
 else
 	@echo "checkmake is required but not installed (install: go install github.com/checkmake/checkmake/cmd/checkmake@latest)"
 	@exit 1
