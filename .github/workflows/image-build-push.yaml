@@ -1,8 +1,6 @@
 name: Container Image Build & Push
 
 on:
-  pull_request:
-    branches: [main, master]
   push:
     branches: [main]
     tags: ['v*']
@@ -41,11 +39,7 @@ jobs:
           # Build tag list
           TAGS="${FULL_IMAGE}:${SHORT_SHA}"
 
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            PR_NUMBER="${{ github.event.pull_request.number }}"
-            TAGS="${TAGS} ${FULL_IMAGE}:pr-${PR_NUMBER}"
-            echo "version=pr-${PR_NUMBER}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.ref_type }}" = "tag" ]; then
+          if [ "${{ github.ref_type }}" = "tag" ]; then
             VERSION="${{ github.ref_name }}"
             TAGS="${TAGS} ${FULL_IMAGE}:${VERSION}"
             # Also tag without 'v' prefix if present (e.g., v0.2.0 -> 0.2.0)
@@ -62,7 +56,6 @@ jobs:
           echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Log in to Quay.io
-        if: github.event_name != 'pull_request'
         run: |
           echo "${{ secrets.QUAY_ROBOT_TOKEN }}" | podman login ${{ env.REGISTRY }} \
             --username "${{ secrets.QUAY_ROBOT_USERNAME }}" \
@@ -98,13 +91,6 @@ jobs:
             "containers-storage:${FULL_IMAGE}:${SHORT_SHA}-amd64"
           podman manifest add "${FULL_IMAGE}:${SHORT_SHA}" \
             "containers-storage:${FULL_IMAGE}:${SHORT_SHA}-arm64"
-
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "Pull request build - manifest created locally; skipping registry push."
-            echo "Tags that would be pushed: ${TAGS}"
-            podman manifest inspect "${FULL_IMAGE}:${SHORT_SHA}"
-            exit 0
-          fi
 
           # Push the manifest under each tag
           for TAG in ${TAGS}; do
