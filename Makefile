@@ -82,8 +82,7 @@ tidy-check:
 
 .PHONY: containerfile-check
 containerfile-check:
-	@! grep -qE '^FROM\s+\S+:(latest|)\s' $(CONTAINER_FILE) 2>/dev/null || \
-		{ echo "ERROR: Containerfile uses :latest or untagged base image"; exit 1; }
+	@awk '/^FROM / { if ($$2 !~ /:/ || $$2 ~ /:latest$$/) { print "ERROR: unpinned base image: " $$2; exit 1 } }' $(CONTAINER_FILE)
 	@echo "Containerfile base image tags are pinned."
 
 # --- Linting tools ---

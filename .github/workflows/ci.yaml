@@ -67,6 +67,7 @@ jobs:
       - name: Run tests with coverage
         run: go test -coverprofile=coverage.txt -count=1 ./...
       - name: Upload results to Codecov
+        if: secrets.CODECOV_TOKEN != ''
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -107,8 +108,19 @@ jobs:
           podman inspect ${{ env.IMAGE_NAME }}:ci --format '{{index .Config.Labels "is.collins.cluster.build.commit.id"}}' | grep -q "$(git rev-parse HEAD)"
           podman inspect ${{ env.IMAGE_NAME }}:ci --format '{{index .Config.Labels "io.k8s.display-name"}}' | grep -q "ollama-metrics"
           echo "All OCI labels validated successfully."
-      - name: Validate image runs
-        run: podman run --rm ${{ env.IMAGE_NAME }}:ci &
+      - name: Validate image starts
+        run: |
+          podman run -d --name ollama-metrics-test -p 8080:8080 ${{ env.IMAGE_NAME }}:ci
+          sleep 2
+          if podman ps --filter name=ollama-metrics-test --format '{{.Status}}' | grep -q "Up"; then
+            echo "Container started successfully."
+          else
+            echo "ERROR: Container failed to start."
+            podman logs ollama-metrics-test
+            exit 1
+          fi
+          podman stop ollama-metrics-test
+          podman rm ollama-metrics-test
 
   tidy-check:
     name: Go Mod Tidy Check
@@ -135,10 +147,7 @@ jobs:
       - name: Check base image tags are pinned
         run: |
           echo "Checking Containerfile base image tags..."
-          if grep -E '^FROM\s+\S+:(latest|)\s' Containerfile; then
-            echo "ERROR: Containerfile uses :latest or untagged base image"
-            exit 1
-          fi
+          awk '/^FROM / { if ($2 !~ /:/ || $2 ~ /:latest$/) { print "ERROR: unpinned base image: " $2; exit 1 } }' Containerfile
           echo "All Containerfile base image tags are pinned."
 
   yaml-lint:
