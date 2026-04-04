@@ -122,10 +122,11 @@ var upstreamClient = &http.Client{
 	Timeout: 0,
 }
 
+var doneReasonRe = regexp.MustCompile(`"done_reason":\s*(\d+)`)
+
 // fixDoneReason processes JSON data to handle the done_reason field that might be a number or string
 func fixDoneReason(data []byte) []byte {
-	re := regexp.MustCompile(`"done_reason":\s*(\d+)`)
-	return re.ReplaceAll(data, []byte(`"done_reason":"$1"`))
+	return doneReasonRe.ReplaceAll(data, []byte(`"done_reason":"$1"`))
 }
 
 // ensureModelTag adds ":latest" to model names that don't have a tag
