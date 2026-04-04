@@ -67,7 +67,7 @@ jobs:
       - name: Run tests with coverage
         run: go test -coverprofile=coverage.txt -count=1 ./...
       - name: Upload results to Codecov
-        if: secrets.CODECOV_TOKEN != ''
+        if: ${{ secrets.CODECOV_TOKEN != '' }}
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
