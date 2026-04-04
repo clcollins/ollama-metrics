@@ -2,6 +2,9 @@ FROM registry.access.redhat.com/ubi9/go-toolset:1.24 as builder
 
 WORKDIR /opt/app-root/src
 
+COPY go.mod go.sum ./
+RUN go mod download
+
 COPY . .
 
 RUN mkdir -p out && go build -buildvcs=false -o out/ollama-metrics .
