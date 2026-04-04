@@ -84,7 +84,9 @@ This will start a pod with:
 - Prometheus for metrics collection
 - Grafana for visualization
 
-Access Grafana at `http://localhost:3000` (default credentials: admin/admin)
+Access Grafana at `http://localhost:3000` (default credentials: admin/admin).
+**Note:** These are default credentials for local development only.
+Change the password immediately if exposing Grafana beyond localhost.
 
 To stop the monitoring stack:
 
