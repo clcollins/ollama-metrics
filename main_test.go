@@ -41,6 +41,11 @@ func TestFixDoneReason(t *testing.T) {
 			input:    []byte(`{"model":"llama3","done":true,"done_reason":1,"eval_count":42}`),
 			expected: []byte(`{"model":"llama3","done":true,"done_reason":"1","eval_count":42}`),
 		},
+		{
+			name:     "numeric done_reason with whitespace after colon",
+			input:    []byte(`{"done_reason": 0}`),
+			expected: []byte(`{"done_reason":"0"}`),
+		},
 	}
 
 	for _, tt := range tests {

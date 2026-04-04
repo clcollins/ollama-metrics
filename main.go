@@ -124,7 +124,7 @@ var upstreamClient = &http.Client{
 
 // fixDoneReason processes JSON data to handle the done_reason field that might be a number or string
 func fixDoneReason(data []byte) []byte {
-	re := regexp.MustCompile(`"done_reason":(\d+)`)
+	re := regexp.MustCompile(`"done_reason":\s*(\d+)`)
 	return re.ReplaceAll(data, []byte(`"done_reason":"$1"`))
 }
 
