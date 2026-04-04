@@ -87,6 +87,7 @@ spec:
       ports:
         - containerPort: 9090
           hostPort: 9090
+          hostIP: 127.0.0.1
       resources:
         requests:
           cpu: 200m
@@ -113,6 +114,7 @@ spec:
       ports:
         - containerPort: 3000
           hostPort: 3000
+          hostIP: 127.0.0.1
       resources:
         requests:
           cpu: 100m
