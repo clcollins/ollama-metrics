@@ -3,7 +3,7 @@
 # separate terms of service, privacy policy, and support
 # documentation.
 
-name: Docker CI
+name: Container CI
 
 on:
   schedule:
@@ -16,9 +16,9 @@ on:
     branches: [ "main" ]
 
 env:
-  # Use docker.io for Docker Hub if empty
+  # Use docker.io for Docker Hub if empty, ghcr.io for GitHub Container Registry
   REGISTRY: ghcr.io
-  # github.repository as <account>/<repo>, must be lowercase for Docker tags
+  # github.repository as <account>/<repo>, must be lowercase for image tags
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
@@ -46,12 +46,12 @@ jobs:
         with:
           cosign-release: 'v2.2.4'
 
-      # Set up BuildKit Docker container builder to be able to build
+      # Set up BuildKit container builder to be able to build
       # multi-platform images and export cache
-      - name: Set up Docker Buildx
+      - name: Set up Buildx
         uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
 
-      # Login against a Docker registry except on PR
+      # Login against container registry except on PR
       - name: Log into registry ${{ env.REGISTRY }}
         if: github.event_name != 'pull_request'
         uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
@@ -60,8 +60,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Extract metadata (tags, labels) for Docker
-      - name: Extract Docker metadata
+      # Extract metadata (tags, labels) for container image
+      - name: Extract container metadata
         id: meta
         uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
         with:
@@ -72,8 +72,8 @@ jobs:
             type=ref,event=branch
             type=sha
 
-      # Build and push Docker image with Buildx (don't push on PR)
-      - name: Build and push Docker image
+      # Build and push container image with Buildx (don't push on PR)
+      - name: Build and push container image
         id: build-and-push
         uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
         with:
@@ -87,8 +87,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Sign the resulting Docker image digest except on PRs.
-      - name: Sign the published Docker image
+      # Sign the resulting container image digest except on PRs.
+      - name: Sign the published container image
         if: ${{ github.event_name != 'pull_request' }}
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
