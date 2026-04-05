@@ -3,7 +3,7 @@ name: Container Image Build & Push
 on:
   push:
     branches: [main]
-    tags: ['v*']
+    tags: ['*.*.*']
 
 env:
   REGISTRY: quay.io
@@ -42,12 +42,7 @@ jobs:
           if [ "${{ github.ref_type }}" = "tag" ]; then
             VERSION="${{ github.ref_name }}"
             TAGS="${TAGS} ${FULL_IMAGE}:${VERSION}"
-            # Also tag without 'v' prefix if present (e.g., v0.2.0 -> 0.2.0)
-            VERSION_NO_V="${VERSION#v}"
-            if [ "${VERSION_NO_V}" != "${VERSION}" ]; then
-              TAGS="${TAGS} ${FULL_IMAGE}:${VERSION_NO_V}"
-            fi
-            echo "version=${VERSION_NO_V}" >> "$GITHUB_OUTPUT"
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           else
             TAGS="${TAGS} ${FULL_IMAGE}:latest"
             echo "version=latest" >> "$GITHUB_OUTPUT"
