@@ -13,15 +13,17 @@ semver tag (`:0.1.0`) — no `v` prefix on pushed image tags.
   the standard convention and should not change.
 - **Image tags**: Always strip the `v` prefix before tagging the pushed
   image. Tag `v0.2.0` produces image `:0.2.0`, never `:v0.2.0`.
-- **Trigger**: The workflow triggers on `v*.*.*` tags (semver releases).
-  It does NOT trigger on bare `X.Y.Z` tags.
+- **Trigger**: The workflow triggers on release-style `v*.*.*` tags.
+  This is a best-effort glob filter — it may also match pre-release
+  tags like `v1.2.3-rc1`. It does NOT trigger on bare `X.Y.Z` tags.
 
 ## Changes
 
 ### image-build-push.yaml
 
-- Tighten tag trigger from `v*` to `v*.*.*` to only match semver
-  release tags (not arbitrary v-prefixed tags like `v-test`)
+- Tighten tag trigger from `v*` to `v*.*.*` as a best-effort filter
+  for release-style tags (excludes arbitrary v-prefixed tags like
+  `v-test`, but may match pre-release tags like `v1.0.0-rc1`)
 - Strip the `v` prefix from `github.ref_name` before using it as the
   image tag and VERSION build-arg
 - Remove the conditional that published both `:vX.Y.Z` and `:X.Y.Z` —
