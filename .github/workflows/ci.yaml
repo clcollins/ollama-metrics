@@ -276,6 +276,8 @@ jobs:
           echo "All OCI labels validated successfully."
       - name: Validate image starts
         run: |
+          cleanup() { podman rm -f ollama-metrics-test 2>/dev/null || true; }
+          trap cleanup EXIT
           podman run -d --name ollama-metrics-test -p 8080:8080 ${{ env.IMAGE_NAME }}:ci
           sleep 2
           STATE=$(podman inspect ollama-metrics-test --format '{{.State.Running}}')
@@ -286,5 +288,3 @@ jobs:
             podman logs ollama-metrics-test
             exit 1
           fi
-          podman stop ollama-metrics-test
-          podman rm ollama-metrics-test
