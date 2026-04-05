@@ -49,8 +49,10 @@ while IFS= read -r line; do
     continue
   fi
 
-  # Check for :latest tag
-  if [[ "${image}" =~ :latest$ ]] || [[ ! "${image}" =~ : ]]; then
+  # Extract tag from the last path segment (after the last /)
+  # This avoids misclassifying registry ports (e.g., localhost:5000/image)
+  last_segment="${image##*/}"
+  if [[ "${last_segment}" =~ :latest$ ]] || [[ ! "${last_segment}" =~ : ]]; then
     echo "WARNING: ${image} uses :latest or no tag (implicit latest)"
     if [ "${ENFORCE}" = "1" ]; then
       EXIT_CODE=1
