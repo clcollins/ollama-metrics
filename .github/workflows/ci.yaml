@@ -45,6 +45,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
       - uses: actions/download-artifact@v4
         with:
           name: ci-image
@@ -58,6 +62,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
       - uses: actions/download-artifact@v4
         with:
           name: ci-image
@@ -71,6 +79,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
       - uses: actions/download-artifact@v4
         with:
           name: ci-image
@@ -84,6 +96,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
       - uses: actions/download-artifact@v4
         with:
           name: ci-image
@@ -97,6 +113,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
       - uses: actions/download-artifact@v4
         with:
           name: ci-image
@@ -110,6 +130,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
       - uses: actions/download-artifact@v4
         with:
           name: ci-image
@@ -123,6 +147,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
       - uses: actions/download-artifact@v4
         with:
           name: ci-image
@@ -240,20 +268,11 @@ jobs:
       - name: Validate OCI labels
         run: |
           echo "Checking OCI labels..."
-          inspect=$(podman inspect ${{ env.IMAGE_NAME }}:ci)
-          for label in \
-            "org.opencontainers.image.title" \
-            "org.opencontainers.image.revision" \
-            "org.opencontainers.image.version" \
-            "org.opencontainers.image.source" \
-            "io.k8s.display-name"; do
-            value=$(echo "${inspect}" | jq -r ".[0].Config.Labels[\"${label}\"]")
-            if [ "${value}" = "null" ] || [ -z "${value}" ]; then
-              echo "ERROR: Missing label: ${label}"
-              exit 1
-            fi
-            echo "OK: ${label}=${value}"
-          done
+          podman inspect ${{ env.IMAGE_NAME }}:ci --format '{{index .Config.Labels "org.opencontainers.image.title"}}' | grep -q "ollama-metrics"
+          podman inspect ${{ env.IMAGE_NAME }}:ci --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' | grep -q "$(git rev-parse HEAD)"
+          podman inspect ${{ env.IMAGE_NAME }}:ci --format '{{index .Config.Labels "org.opencontainers.image.version"}}' | grep -q "ci"
+          podman inspect ${{ env.IMAGE_NAME }}:ci --format '{{index .Config.Labels "org.opencontainers.image.source"}}' | grep -q "ollama-metrics"
+          podman inspect ${{ env.IMAGE_NAME }}:ci --format '{{index .Config.Labels "io.k8s.display-name"}}' | grep -q "ollama-metrics"
           echo "All OCI labels validated successfully."
       - name: Validate image starts
         run: |
