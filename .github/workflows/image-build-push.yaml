@@ -3,8 +3,7 @@ name: Container Image Build & Push
 on:
   push:
     branches: [main]
-    tags: ['*.*.*']
-    tags-ignore: ['v*']
+    tags: ['v*.*.*']
 
 env:
   REGISTRY: quay.io
@@ -41,7 +40,9 @@ jobs:
           TAGS="${FULL_IMAGE}:${SHORT_SHA}"
 
           if [ "${{ github.ref_type }}" = "tag" ]; then
+            # Strip 'v' prefix from tag for image tag (v0.2.0 -> 0.2.0)
             VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
             TAGS="${TAGS} ${FULL_IMAGE}:${VERSION}"
             echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           else
