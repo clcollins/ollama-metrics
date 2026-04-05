@@ -31,12 +31,21 @@ fi
 
 echo "Checking ${CONTAINERFILE}..."
 
+# Collect stage aliases from "FROM ... AS <name>" lines
+declare -A STAGE_ALIASES
 while IFS= read -r line; do
-  # Extract image reference (skip "AS" alias)
-  image=$(echo "${line}" | sed -E 's/^FROM\s+//i; s/\s+[Aa][Ss]\s+.*//; s/\s*$//')
+  alias=$(echo "${line}" | sed -E 's/.*[Aa][Ss][[:space:]]+([^[:space:]]+).*/\1/')
+  if [ "${alias}" != "${line}" ]; then
+    STAGE_ALIASES["${alias}"]=1
+  fi
+done < <(grep -iE '^FROM[[:space:]]' "${CONTAINERFILE}")
 
-  # Skip build stage references (no / or . in the name)
-  if [[ ! "${image}" =~ [/.] ]]; then
+while IFS= read -r line; do
+  # Extract image reference (strip FROM and AS alias)
+  image=$(echo "${line}" | sed -E 's/^FROM[[:space:]]+//i; s/[[:space:]]+[Aa][Ss][[:space:]]+.*//; s/[[:space:]]*$//')
+
+  # Skip build stage references (matched against collected AS aliases)
+  if [[ -n "${STAGE_ALIASES[${image}]+x}" ]]; then
     continue
   fi
 
@@ -48,10 +57,10 @@ while IFS= read -r line; do
     fi
   fi
 
-  # Check for known registry
+  # Check for known registry (string prefix match, not regex)
   registry_found=0
   for registry in "${KNOWN_REGISTRIES[@]}"; do
-    if [[ "${image}" =~ ^${registry} ]]; then
+    if [[ "${image}" == "${registry}/"* ]]; then
       registry_found=1
       break
     fi
@@ -64,7 +73,7 @@ while IFS= read -r line; do
     fi
   fi
 
-done < <(grep -iE '^FROM\s' "${CONTAINERFILE}")
+done < <(grep -iE '^FROM[[:space:]]' "${CONTAINERFILE}")
 
 if [ "${EXIT_CODE}" = "0" ]; then
   echo "All checks passed."

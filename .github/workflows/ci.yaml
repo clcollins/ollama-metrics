@@ -7,7 +7,6 @@ on:
     branches: [main, master]
 
 env:
-  GO_VERSION: "1.24"
   CI_IMAGE: ollama-metrics-ci
   IMAGE_NAME: quay.io/clcollins/ollama-metrics
 
@@ -19,6 +18,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
 
       - name: Build CI container
         run: podman build -f test/Containerfile.ci -t ${CI_IMAGE} test/
@@ -222,6 +226,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
       - name: Build container image
         run: |
           podman build -f Containerfile \
@@ -247,5 +255,17 @@ jobs:
             echo "OK: ${label}=${value}"
           done
           echo "All OCI labels validated successfully."
-      - name: Validate image runs
-        run: podman run --rm ${{ env.IMAGE_NAME }}:ci &
+      - name: Validate image starts
+        run: |
+          podman run -d --name ollama-metrics-test -p 8080:8080 ${{ env.IMAGE_NAME }}:ci
+          sleep 2
+          STATE=$(podman inspect ollama-metrics-test --format '{{.State.Running}}')
+          if [ "${STATE}" = "true" ]; then
+            echo "Container started successfully."
+          else
+            echo "ERROR: Container failed to start."
+            podman logs ollama-metrics-test
+            exit 1
+          fi
+          podman stop ollama-metrics-test
+          podman rm ollama-metrics-test
