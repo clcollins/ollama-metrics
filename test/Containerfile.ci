@@ -1,0 +1,50 @@
+FROM registry.fedoraproject.org/fedora-minimal:42
+
+RUN dnf install --assumeyes \
+      make \
+      git \
+      tar \
+      gzip \
+      curl \
+      ShellCheck \
+      nodejs-npm \
+      python3-pip \
+  && dnf clean all \
+  && rm -rf /var/cache/dnf
+
+# Python-based tools
+ARG YAMLLINT_VERSION=1.37.0
+RUN pip install --root-user-action=ignore --no-cache-dir \
+      yamllint==${YAMLLINT_VERSION}
+
+# Node.js-based tools
+ARG MARKDOWNLINT_CLI2_VERSION=0.17.2
+RUN npm install -g markdownlint-cli2@${MARKDOWNLINT_CLI2_VERSION} \
+  && npm cache clean --force
+
+# checkmake (Makefile linter) — pre-built binary
+ARG CHECKMAKE_VERSION=0.2.2
+RUN arch="$(uname -m)" \
+  && case "$arch" in \
+       x86_64) target_arch="amd64" ;; \
+       aarch64|arm64) target_arch="arm64" ;; \
+       *) echo "Unsupported architecture: $arch" >&2; exit 1 ;; \
+     esac \
+  && curl -sSL "https://github.com/mrtazz/checkmake/releases/download/${CHECKMAKE_VERSION}/checkmake-${CHECKMAKE_VERSION}.linux.${target_arch}" \
+       -o /usr/local/bin/checkmake \
+  && chmod +x /usr/local/bin/checkmake \
+  && checkmake --version
+
+# kubeconform (K8s manifest validator) — pre-built binary
+ARG KUBECONFORM_VERSION=v0.6.7
+RUN arch="$(uname -m)" \
+  && case "$arch" in \
+       x86_64) target_arch="amd64" ;; \
+       aarch64|arm64) target_arch="arm64" ;; \
+       *) echo "Unsupported architecture: $arch" >&2; exit 1 ;; \
+     esac \
+  && curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-${target_arch}.tar.gz" \
+      | tar -C /usr/local/bin -xzv kubeconform \
+  && kubeconform -v
+
+WORKDIR /work

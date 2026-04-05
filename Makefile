@@ -1,3 +1,5 @@
+-include .env
+
 CONTAINER_SUBSYS ?= podman
 NAME := ollama-metrics
 PROJECT := clcollins
@@ -5,6 +7,7 @@ IMAGE_REGISTRY := quay.io
 
 CONTAINER_FILE := Containerfile
 IMAGE_STRING := $(IMAGE_REGISTRY)/$(PROJECT)/$(NAME)
+CI_IMAGE := $(NAME)-ci
 
 GIT_SHA := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GIT_COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
@@ -16,10 +19,9 @@ GOFLAGS ?=
 
 # Tool binaries (installed via go install)
 GOLANGCI_LINT := $(shell command -v golangci-lint 2>/dev/null)
-CHECKMAKE := $(shell command -v checkmake 2>/dev/null)
 
 .PHONY: all
-all: fmt vet lint test build
+all: fmt vet lint go-test build
 
 # --- Go targets ---
 
@@ -40,18 +42,31 @@ else
 	@exit 1
 endif
 
-.PHONY: test
-test:
+.PHONY: go-test
+go-test:
 	$(GO) test -v -count=1 -race ./...
 
-.PHONY: test-cover
-test-cover:
+.PHONY: go-test-cover
+go-test-cover:
 	$(GO) test -cover -count=1 ./...
 
 .PHONY: build
 build:
 	mkdir -p out
 	$(GO) build $(GOFLAGS) -o out/$(NAME) .
+
+.PHONY: tidy
+tidy:
+	$(GO) mod tidy
+
+.PHONY: tidy-check
+tidy-check:
+	$(GO) mod tidy
+	@if [ -n "$$(git diff --name-only go.mod go.sum)" ]; then \
+		echo "go.mod or go.sum is not tidy. Run 'go mod tidy' and commit the changes."; \
+		git diff go.mod go.sum; \
+		exit 1; \
+	fi
 
 # --- Container targets ---
 
@@ -68,54 +83,62 @@ image-push: image-build
 	$(CONTAINER_SUBSYS) push $(IMAGE_STRING):$(GIT_SHA)
 	$(CONTAINER_SUBSYS) push $(IMAGE_STRING):latest
 
-# --- Validation targets ---
+# --- CI container targets ---
 
-.PHONY: tidy
-tidy:
-	$(GO) mod tidy
+.PHONY: ci-build
+ci-build:
+	$(CONTAINER_SUBSYS) build -f test/Containerfile.ci -t $(CI_IMAGE) test/
 
-.PHONY: tidy-check
-tidy-check:
-	$(GO) mod tidy
-	@test -z "$$(git diff --name-only go.mod go.sum)" || \
-		{ echo "go.mod/go.sum not tidy"; git diff go.mod go.sum; exit 1; }
+.PHONY: ci-all
+ci-all: ci-build
+	$(CONTAINER_SUBSYS) run --rm -v "$$(pwd):/work:Z" $(CI_IMAGE) make ci-checks
 
-.PHONY: containerfile-check
-containerfile-check:
-	@awk '/^FROM / { if ($$2 !~ /:/ || $$2 ~ /:latest$$/) { print "ERROR: unpinned base image: " $$2; exit 1 } }' $(CONTAINER_FILE)
-	@echo "Containerfile base image tags are pinned."
+.PHONY: ci-checks
+ci-checks: yaml-lint markdown-lint makefile-lint containerfile-check kubernetes-validate shellcheck-lint docs-check
 
-# --- Linting tools ---
-
-.PHONY: checkmake
-checkmake:
-ifdef CHECKMAKE
-	$(CHECKMAKE) Makefile
-else
-	@echo "checkmake is required but not installed (install: go install github.com/checkmake/checkmake/cmd/checkmake@latest)"
-	@exit 1
-endif
-
-.PHONY: mdlint
-mdlint:
-	@command -v markdownlint-cli2 >/dev/null 2>&1 \
-		&& markdownlint-cli2 '**/*.md' '#node_modules' \
-		|| { echo "markdownlint-cli2 not found (install: npm install -g markdownlint-cli2)"; exit 1; }
+# --- CI check targets (run inside CI container) ---
 
 .PHONY: yaml-lint
 yaml-lint:
-	@command -v yamllint >/dev/null 2>&1 \
-		&& yamllint -c .yamllint.yaml prometheus/ .github/workflows/ \
-		|| { echo "yamllint not found (install: pip install yamllint)"; exit 1; }
+	yamllint -c .yamllint.yaml prometheus/ .github/workflows/
+
+.PHONY: markdown-lint
+markdown-lint:
+	markdownlint-cli2 '**/*.md' '#node_modules'
+
+.PHONY: makefile-lint
+makefile-lint:
+	checkmake Makefile
+
+.PHONY: containerfile-check
+containerfile-check:
+	ENFORCE=1 bash test/scripts/check-containerfile-tags.sh Containerfile
+	ENFORCE=1 bash test/scripts/check-containerfile-tags.sh test/Containerfile.ci
+
+.PHONY: kubernetes-validate
+kubernetes-validate:
+	kubeconform -strict -summary prometheus/monitoring.yaml
+
+.PHONY: shellcheck-lint
+shellcheck-lint:
+	shellcheck test/scripts/*.sh
+
+.PHONY: docs-check
+docs-check:
+	@if [ -z "$$(find docs/plans -name '*.md' -type f 2>/dev/null)" ]; then \
+		echo "ERROR: No plan documents found in docs/plans/"; \
+		exit 1; \
+	fi
+	@echo "Plan documents found in docs/plans/."
 
 # --- Aggregate targets ---
 
-.PHONY: test-all
-test-all: fmt vet lint test build tidy-check containerfile-check checkmake mdlint yaml-lint image-build
-	@echo "All checks passed."
+.PHONY: test
+test: ci-all
 
-.PHONY: ci
-ci: fmt vet test build
+.PHONY: test-all
+test-all: fmt vet lint go-test build tidy-check ci-all image-build
+	@echo "All checks passed."
 
 .PHONY: clean
 clean:

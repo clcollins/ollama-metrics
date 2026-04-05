@@ -1,14 +1,15 @@
+.docs/
 .env
 .git/
-.docs/
 .github/
 .gitignore
 .containerignore
 .yamllint.yaml
 .markdownlint.yaml
 .golangci.yml
-CONVENTIONS.md
 CLAUDE.md
+CONVENTIONS.md
+Containerfile
 LICENSE
 Makefile
 README.md
