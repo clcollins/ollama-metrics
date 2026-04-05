@@ -91,7 +91,7 @@ ci-build:
 
 .PHONY: ci-all
 ci-all: ci-build
-	$(CONTAINER_SUBSYS) run --rm -v $$(pwd):/work:Z $(CI_IMAGE) make ci-checks
+	$(CONTAINER_SUBSYS) run --rm -v "$$(pwd):/work:Z" $(CI_IMAGE) make ci-checks
 
 .PHONY: ci-checks
 ci-checks: yaml-lint markdown-lint makefile-lint containerfile-check kubernetes-validate shellcheck-lint docs-check

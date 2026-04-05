@@ -79,4 +79,4 @@ if [ "${EXIT_CODE}" = "0" ]; then
   echo "All checks passed."
 fi
 
-exit ${EXIT_CODE}
+exit "${EXIT_CODE}"

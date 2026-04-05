@@ -13,11 +13,13 @@ RUN dnf install --assumeyes \
   && rm -rf /var/cache/yum
 
 # Python-based tools
+ARG YAMLLINT_VERSION=1.37.0
 RUN pip install --root-user-action=ignore \
-      yamllint
+      yamllint==${YAMLLINT_VERSION}
 
 # Node.js-based tools
-RUN npm install -g markdownlint-cli2
+ARG MARKDOWNLINT_CLI2_VERSION=0.17.2
+RUN npm install -g markdownlint-cli2@${MARKDOWNLINT_CLI2_VERSION}
 
 # checkmake (Makefile linter) — pre-built binary
 ARG CHECKMAKE_VERSION=0.2.2
