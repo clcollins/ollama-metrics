@@ -41,11 +41,11 @@ while IFS= read -r line; do
 done < <(grep -iE '^FROM[[:space:]]' "${CONTAINERFILE}")
 
 while IFS= read -r line; do
-  # Extract image reference (strip FROM and AS alias)
-  image=$(echo "${line}" | sed -E 's/^FROM[[:space:]]+//i; s/[[:space:]]+[Aa][Ss][[:space:]]+.*//; s/[[:space:]]*$//')
+  # Strip inline comments and extract image reference (strip FROM and AS alias)
+  image=$(echo "${line}" | sed -E 's/[[:space:]]+#.*$//; s/^FROM[[:space:]]+//i; s/[[:space:]]+[Aa][Ss][[:space:]]+.*//; s/[[:space:]]*$//')
 
   # Skip build stage references (matched against collected AS aliases)
-  if [[ -n "${STAGE_ALIASES[${image}]+x}" ]]; then
+  if [[ -n "${STAGE_ALIASES["${image}"]+x}" ]]; then
     continue
   fi
 
